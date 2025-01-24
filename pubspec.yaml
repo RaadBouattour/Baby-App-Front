@@ -1,0 +1,33 @@
+name: baby_front
+description: "A new Flutter project for a baby shop app."
+# Prevent accidental publication to pub.dev.
+publish_to: 'none'
+
+# Version and build number for your app.
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.2
+  provider: ^6.1.2
+  shared_preferences: ^2.3.5
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+
+  # Ensure Material Icons are included.
+  uses-material-design: true
+
+  # Define your app assets here.
+  assets:
+    - assets/images/
+    - assets/images/placeholder.png
