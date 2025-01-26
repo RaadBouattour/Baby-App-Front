@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 import 'screens/categories_screen.dart';
 import 'screens/articles_screen.dart';
-import 'screens/profile_screen.dart';
+import 'screens/notifications_screen.dart'; // Import notifications screen
 import 'screens/login_screen.dart';
 import 'services/api_service.dart';
 
@@ -28,6 +28,8 @@ class MyApp extends StatelessWidget {
       routes: {
         '/main': (context) => const MainScreen(),
         '/login': (context) => const LoginScreen(),
+        '/cart': (context) => const CartScreen(),
+        '/notifications': (context) => const NotificationsScreen(), // Add notifications route
       },
     );
   }
@@ -43,6 +45,8 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   bool _isLoggedIn = false;
+  int _cartItemCount = 0;
+  int _notificationsCount = 0;
 
   final List<Widget> _pages = [
     const HomeScreen(),
@@ -55,8 +59,11 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _checkLoginStatus();
+    _fetchCartItemCount();
+    _fetchNotificationsCount();
   }
 
+  /// Check if the user is logged in
   Future<void> _checkLoginStatus() async {
     final isLoggedIn = await ApiService.isLoggedIn();
     setState(() {
@@ -68,30 +75,84 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  /// Fetch the number of items in the cart
+  Future<void> _fetchCartItemCount() async {
+    try {
+      final cart = await ApiService.fetchCart();
+      setState(() {
+        _cartItemCount = cart.length;
+      });
+    } catch (e) {
+      print('Error fetching cart item count: $e');
+    }
+  }
+
+  /// Fetch the number of unread notifications
+  Future<void> _fetchNotificationsCount() async {
+    try {
+      final count = await ApiService.getUnreadNotificationsCount(); // API call for unread notifications
+      setState(() {
+        _notificationsCount = count;
+      });
+    } catch (e) {
+      print('Error fetching notifications count: $e');
+    }
+  }
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+
+    if (index == 3) {
+      // Refresh cart count when navigating to the cart screen
+      _fetchCartItemCount();
+    }
   }
 
   @override
-  Widget build(BuildContext context) { // ahaaaawwwwwwwwwwwwwwwwwwww
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Hello Mommy'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications),
+            icon: Stack(
+              children: [
+                const Icon(Icons.notifications),
+                if (_notificationsCount > 0)
+                  Positioned(
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '$_notificationsCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             onPressed: () {
-              // Handle notifications
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+              );
             },
           ),
-          /*IconButton(
-            icon: const Icon(Icons.shopping_cart),
-            onPressed: () {
-              Navigator.pushNamed(context, '/cart');
-            },
-          ),*/
         ],
       ),
       drawer: _isLoggedIn ? const AppDrawer() : null, // Show drawer only if logged in
@@ -101,11 +162,42 @@ class _MainScreenState extends State<MainScreen> {
         selectedItemColor: Colors.pink,
         unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.category), label: 'Categories'),
-          BottomNavigationBarItem(icon: Icon(Icons.article), label: 'Articles'),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
+        items: [
+          const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          const BottomNavigationBarItem(icon: Icon(Icons.category), label: 'Categories'),
+          const BottomNavigationBarItem(icon: Icon(Icons.article), label: 'Articles'),
+          BottomNavigationBarItem(
+            icon: Stack(
+              children: [
+                const Icon(Icons.shopping_cart),
+                if (_cartItemCount > 0)
+                  Positioned(
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '$_cartItemCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            label: 'Cart',
+          ),
         ],
       ),
     );

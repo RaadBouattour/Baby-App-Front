@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 import '../services/api_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -64,59 +65,127 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showProductDetails(BuildContext context, Map<String, dynamic> product) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(16.0),
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Image.network(product['image'], height: 150, width: double.infinity, fit: BoxFit.cover),
-              const SizedBox(height: 10),
-              Text(product['name'], style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 5),
-              Text("${product['price']} TND", style: const TextStyle(fontSize: 18, color: Colors.pink)),
-              const SizedBox(height: 10),
-              Text(product['description'], style: const TextStyle(fontSize: 16)),
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) {
+      int quantity = 1; // Default quantity
+      int availableStock = product['stock']; // Get available stock from the product
+
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          return Container(
+            padding: const EdgeInsets.all(16.0),
+            height: MediaQuery.of(context).size.height * 0.6,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Image.network(
+                  product['image'],
+                  height: 150,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  product['name'],
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  "${product['price']} TND",
+                  style: const TextStyle(fontSize: 18, color: Colors.pink),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  product['description'],
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  "Available Stock: $availableStock",
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove, color: Colors.pink),
                       onPressed: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Added to cart')),
-                        );
+                        setState(() {
+                          if (quantity > 1) quantity--;
+                        });
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.pink),
-                      child: const Text("Add to Cart"),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
+                    Text(
+                      "$quantity",
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add, color: Colors.pink),
                       onPressed: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Order placed successfully')),
-                        );
+                        setState(() {
+                          if (quantity < availableStock) {
+                            quantity++;
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Cannot add more than available stock'),
+                              ),
+                            );
+                          }
+                        });
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                      child: const Text("Order Now"),
                     ),
-                  ),
-                ],
-              )
-            ],
-          ),
-        );
-      },
-    );
-  }
+                  ],
+                ),
+                const Spacer(),
+                ElevatedButton(
+                  onPressed: () async {
+                    try {
+                      final prefs = await SharedPreferences.getInstance();
+                      String? token = prefs.getString('token');
+                      if (token == null) {
+                        throw Exception("No token found");
+                      }
+
+                      token = token.trim(); // Trim any spaces
+                      print("DEBUG: Token being sent to backend: $token");
+
+                      // Use the updated ApiService method to add to cart
+                      await ApiService.addToCart(
+                        product['_id'], // Pass the product ID
+                        quantity, // Pass the selected quantity
+                        product['price'], // Pass the product price
+                      );
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Added to cart')),
+                      );
+                    } catch (e) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to add to cart: $e')),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.pink),
+                  child: const Text("Add to Cart"),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -135,21 +204,24 @@ class _HomeScreenState extends State<HomeScreen> {
               if (!isSearching) ...[
                 const Text(
                   'Exclusive Deals',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 10),
                 _buildProductList(context, exclusiveDeals),
                 const SizedBox(height: 20),
                 const Text(
                   'Best Sellers',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 10),
                 _buildProductList(context, bestSellers),
               ] else ...[
                 const Text(
                   'Search Results',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 10),
                 _buildProductList(context, searchResults),
@@ -163,7 +235,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildSearchBar() {
     return Container(
-      decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(50)),
+      decoration: BoxDecoration(
+          color: Colors.grey[200], borderRadius: BorderRadius.circular(50)),
       padding: const EdgeInsets.symmetric(horizontal: 15),
       child: TextField(
         onChanged: (query) => _searchProducts(query),
@@ -176,7 +249,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildProductList(BuildContext context, List<Map<String, dynamic>> products) {
+  Widget _buildProductList(
+      BuildContext context, List<Map<String, dynamic>> products) {
     return SizedBox(
       height: 200,
       child: ListView.builder(
@@ -205,11 +279,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text(
                             product['name'],
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 5),
-                          Text("${product['price']} TND", style: const TextStyle(color: Colors.pink)),
+                          Text(
+                            "${product['price']} TND",
+                            style: const TextStyle(color: Colors.pink),
+                          ),
                         ],
                       ),
                     ),
